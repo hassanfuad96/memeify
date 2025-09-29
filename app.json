@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Memeify",
-    "slug": "memeify",
+    "slug": "MemeGenerator",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -33,6 +33,7 @@
       "eas": {
         "projectId": "34d35844-4d95-4ed5-87c6-b13f83d44408"
       }
-    }
+    },
+    "owner": "mhassanfuad"
   }
 }
