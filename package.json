@@ -9,7 +9,15 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-picker/picker": "2.11.1",
+    "axios": "^1.12.2",
+    "eas-cli": "^16.19.3",
     "expo": "~54.0.10",
+    "expo-doctor": "^1.17.8",
+    "expo-file-system": "^19.0.15",
+    "expo-linear-gradient": "^15.0.7",
+    "expo-media-library": "^18.2.0",
+    "expo-sharing": "^14.0.7",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
     "react-native": "0.81.4"

@@ -16,6 +16,8 @@
       "supportsTablet": true
     },
     "android": {
+      "package": "com.mhassanfuad.memegenerator",
+      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -25,6 +27,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "34d35844-4d95-4ed5-87c6-b13f83d44408"
+      }
     }
   }
 }
