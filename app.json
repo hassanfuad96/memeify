@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "MemeGenerator",
-    "slug": "MemeGenerator",
+    "name": "Memeify",
+    "slug": "memeify",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,10 +13,11 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.whitelabel.memeify"
     },
     "android": {
-      "package": "com.mhassanfuad.memegenerator",
+      "package": "com.whitelabel.memeify",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

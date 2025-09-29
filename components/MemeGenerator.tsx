@@ -155,7 +155,7 @@ export default function MemeGenerator() {
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <Text style={styles.headerTitle}>😂 Meme Studio</Text>
+        <Text style={styles.headerTitle}>😂 Memeify</Text>
       </LinearGradient>
 
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
