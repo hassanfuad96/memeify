@@ -140,7 +140,7 @@ export default function MemeGenerator() {
   if (loadingTemplates) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A90E2" />
+        <ActivityIndicator size="large" color="#E91E63" />
         <Text style={styles.loadingText}>Loading meme templates...</Text>
       </View>
     );
@@ -150,12 +150,12 @@ export default function MemeGenerator() {
     <View style={styles.container}>
       {/* Modern Header */}
       <LinearGradient
-        colors={['#4A90E2', '#357ABD']}
+        colors={['#E91E63', '#C2185B']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 0 }}
       >
-        <Text style={styles.headerTitle}>😂 Memeify</Text>
+        <Text style={styles.headerTitle}>😂 MemeLab</Text>
       </LinearGradient>
 
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.contentContainer}>
@@ -339,8 +339,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   selectedTemplateCard: {
-    borderColor: '#4A90E2',
-    backgroundColor: '#e3f2fd',
+    borderColor: '#E91E63',
+    backgroundColor: '#fce4ec',
   },
   templateThumbnail: {
     width: 80,
@@ -358,7 +358,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 5,
     right: 5,
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#E91E63',
     borderRadius: 10,
     width: 20,
     height: 20,
@@ -382,12 +382,12 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   generateShareButton: {
-    backgroundColor: '#4A90E2',
+    backgroundColor: '#E91E63',
     paddingVertical: 18,
     borderRadius: 8,
     alignItems: 'center',
     marginBottom: 15,
-    shadowColor: '#4A90E2',
+    shadowColor: '#E91E63',
     shadowOffset: {
       width: 0,
       height: 4,
