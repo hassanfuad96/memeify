@@ -9,18 +9,23 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@react-native-camera-roll/camera-roll": "^7.10.2",
     "@react-native-picker/picker": "2.11.1",
     "axios": "^1.12.2",
     "eas-cli": "^16.19.3",
-    "expo": "~54.0.10",
+    "expo": "54.0.12",
+    "expo-dev-client": "~6.0.13",
     "expo-doctor": "^1.17.8",
-    "expo-file-system": "^19.0.15",
+    "expo-file-system": "~19.0.16",
     "expo-linear-gradient": "^15.0.7",
-    "expo-media-library": "^18.2.0",
-    "expo-sharing": "^14.0.7",
+    "expo-media-library": "~18.2.0",
+    "expo-sharing": "~14.0.7",
     "expo-status-bar": "~3.0.8",
     "react": "19.1.0",
-    "react-native": "0.81.4"
+    "react-native": "0.81.4",
+    "react-native-fs": "^2.20.0",
+    "react-native-permissions": "^5.4.2",
+    "react-native-share": "^9.4.1"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

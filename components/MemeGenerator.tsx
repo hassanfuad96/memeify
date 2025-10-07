@@ -15,7 +15,52 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import axios from 'axios';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import { NativeModules, Share as CoreShare } from 'react-native';
+
+// Lazily load RNFS to provide fallback cache directory when Expo FileSystem cacheDirectory is null
+const loadRNFS = async () => {
+  const hasNative = !!(NativeModules as any)?.RNFSManager;
+  if (!hasNative) return null;
+  const mod = await import('react-native-fs');
+  return (mod as any).default ?? mod;
+};
+
+// Ensure a writable cache path via Expo FileSystem
+const ensureCachePath = async (filename: string): Promise<string | null> => {
+  const base = (FileSystem as any).cacheDirectory as string | undefined;
+  if (!base) return null;
+  const dir = `${base}memelab/`;
+  try {
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  } catch {}
+  return `${dir}${filename}`;
+};
+
+// Download to cache via Expo FileSystem and return local URI; fallback to RNFS if needed
+const downloadToCache = async (remoteUrl: string): Promise<string | null> => {
+  const expoTarget = await ensureCachePath(`meme-${Date.now()}.png`);
+  if (expoTarget) {
+    const { uri } = await FileSystem.downloadAsync(remoteUrl, expoTarget);
+    return uri;
+  }
+  // Fallback: RNFS cache directory
+  const RNFS = await loadRNFS();
+  if (!RNFS) return null;
+  const dir = `${RNFS.CachesDirectoryPath}/memelab`;
+  try { await RNFS.mkdir(dir); } catch {}
+  const path = `${dir}/meme-${Date.now()}.png`;
+  await RNFS.downloadFile({ fromUrl: remoteUrl, toFile: path }).promise;
+  return `file://${path}`;
+};
+
+// Read file contents as base64 for maximum compatibility with targeted share intents
+const readBase64 = async (fileUri: string): Promise<string> => {
+  // Use string literal for encoding to satisfy current typings
+  return FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' as any });
+};
 
 interface MemeTemplate {
   id: string;
@@ -41,6 +86,7 @@ export default function MemeGenerator() {
   const [topText, setTopText] = useState<string>('');
   const [bottomText, setBottomText] = useState<string>('');
   const [generatedMemeUrl, setGeneratedMemeUrl] = useState<string>('');
+  const [localMemeUri, setLocalMemeUri] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [loadingTemplates, setLoadingTemplates] = useState<boolean>(true);
 
@@ -53,7 +99,10 @@ export default function MemeGenerator() {
       setLoadingTemplates(true);
       const response = await axios.get('https://api.memegen.link/templates/');
       const templatesArray = Object.values(response.data) as MemeTemplate[];
-      setTemplates(templatesArray.slice(0, 20));
+      const uniqueTemplates = templatesArray.filter(
+        (t, idx, arr) => arr.findIndex(x => x.id === t.id) === idx
+      );
+      setTemplates(uniqueTemplates.slice(0, 20));
       if (templatesArray.length > 0) {
         setSelectedTemplate(templatesArray[0].id);
         setSelectedTemplateData(templatesArray[0]);
@@ -109,18 +158,78 @@ export default function MemeGenerator() {
     }
 
     try {
-      const isAvailable = await Sharing.isAvailableAsync();
-      if (isAvailable) {
-        await Sharing.shareAsync(generatedMemeUrl, {
-          mimeType: 'image/png',
-          dialogTitle: 'Share your meme!',
-        });
-      } else {
-        Alert.alert('Error', 'Sharing is not available on this device');
+      const RNShare = await loadShare();
+      const localUri = await downloadToCache(generatedMemeUrl);
+      if (localUri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(localUri, { mimeType: 'image/png', dialogTitle: 'Share your meme!' });
+        if (localUri) setLocalMemeUri(localUri);
+        return;
       }
+      // Fallbacks
+      if (localUri && RNShare) {
+        const b64 = await readBase64(localUri);
+        await RNShare.open({ url: `data:image/png;base64,${b64}`, type: 'image/png', failOnCancel: false });
+        if (localUri) setLocalMemeUri(localUri);
+        return;
+      }
+      // Last resort: system sheet with remote URL
+      await CoreShare.share({ url: generatedMemeUrl });
     } catch (error) {
       console.error('Error sharing meme:', error);
       Alert.alert('Error', 'Failed to share meme. You can save the image by long-pressing on it.');
+    }
+  };
+
+  const ensureLocalMeme = async (): Promise<string | null> => {
+    if (localMemeUri) return localMemeUri;
+    try {
+      const uri = await downloadToCache(generatedMemeUrl);
+      if (uri) setLocalMemeUri(uri);
+      return uri;
+    } catch {
+      return null;
+    }
+  };
+
+  const shareTo = async (target: 'whatsapp' | 'whatsapp_status' | 'telegram' | 'facebook') => {
+    if (!generatedMemeUrl) {
+      Alert.alert('Error', 'No meme to share. Please generate a meme first.');
+      return;
+    }
+    try {
+      const RNShare = await loadShare();
+      if (RNShare) {
+        const uri = await ensureLocalMeme();
+        if (!uri) {
+          // fallback to remote URL
+          const map: Record<string, any> = {
+            whatsapp: RNShare.Social.WHATSAPP,
+            whatsapp_status: RNShare.Social.WHATSAPP,
+            telegram: RNShare.Social.TELEGRAM,
+            facebook: RNShare.Social.FACEBOOK,
+          };
+          await RNShare.shareSingle({ social: map[target], url: generatedMemeUrl, type: 'image/png' });
+          return;
+        }
+        const b64 = await readBase64(uri);
+        const map: Record<string, any> = {
+          whatsapp: RNShare.Social.WHATSAPP,
+          whatsapp_status: RNShare.Social.WHATSAPP,
+          telegram: RNShare.Social.TELEGRAM,
+          facebook: RNShare.Social.FACEBOOK,
+        };
+        await RNShare.shareSingle({
+          social: map[target],
+          url: `data:image/png;base64,${b64}`,
+          type: 'image/png',
+        });
+      } else {
+        // Fallback to system share sheet if targeted module is unavailable
+        await CoreShare.share({ url: generatedMemeUrl });
+      }
+    } catch (error) {
+      console.error('Targeted share error:', error);
+      Alert.alert('Error', 'Unable to share to selected app.');
     }
   };
 
@@ -128,6 +237,33 @@ export default function MemeGenerator() {
     setTopText('');
     setBottomText('');
     setGeneratedMemeUrl('');
+  };
+
+  const saveMemeToLibrary = async () => {
+    if (!generatedMemeUrl) {
+      Alert.alert('Error', 'No meme to save. Please generate a meme first.');
+      return;
+    }
+
+    try {
+      const perms = await MediaLibrary.requestPermissionsAsync();
+      if (!perms.granted) {
+        Alert.alert('Permission required', 'Please grant Photos access to save images.');
+        return;
+      }
+
+      const uri = await downloadToCache(generatedMemeUrl);
+      if (!uri) {
+        Alert.alert('Error', 'No writable cache directory available.');
+        return;
+      }
+      const asset = await MediaLibrary.createAssetAsync(uri);
+      try { await MediaLibrary.createAlbumAsync('MemeLab', asset, false); } catch {}
+      Alert.alert('Saved', 'Meme saved to your Photos library.');
+    } catch (error) {
+      console.error('Error saving meme:', error);
+      Alert.alert('Error', 'Failed to save meme. Please try again.');
+    }
   };
 
   const handleTemplateChange = (templateId: string) => {
@@ -170,7 +306,7 @@ export default function MemeGenerator() {
             data={templates}
             horizontal
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => `${item.id}-${index}`}
             renderItem={({ item }) => (
               <TouchableOpacity
                 style={[
@@ -248,12 +384,20 @@ export default function MemeGenerator() {
               style={styles.memeImage}
               resizeMode="contain"
             />
-            <TouchableOpacity
-              style={styles.shareButton}
-              onPress={shareMeme}
-            >
-              <Text style={styles.shareButtonText}>Share Meme</Text>
-            </TouchableOpacity>
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                style={styles.shareButton}
+                onPress={shareMeme}
+              >
+                <Text style={styles.shareButtonText}>Share Meme</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={saveMemeToLibrary}
+              >
+                <Text style={styles.saveButtonText}>Save to Gallery</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -454,4 +598,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  saveButton: {
+    backgroundColor: '#E91E63',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+  },
+  saveButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  socialRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+    justifyContent: 'center',
+  },
+  socialBtn: {
+    backgroundColor: '#f0f0f0',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  socialText: {
+    color: '#333',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 });
+// Lazily load react-native-share to avoid crashes in environments without the native module
+const loadShare = async () => {
+  const hasNative = !!(NativeModules as any)?.RNShare;
+  if (!hasNative) return null;
+  const mod = await import('react-native-share');
+  return (mod as any).default ?? mod;
+};
